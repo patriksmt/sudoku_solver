@@ -40,9 +40,14 @@ class Cell:
 				return 9
 
 	def remove_candidate(self, possibility):
+		"""
+		Main removal function
+		Returns 0 if the targeted cell is already found
+		Returns -1 if the number was successfully removed from target cell
+		Returns [1-9] if a number was removed and only a single number possiblity remains
+		"""
 		if self.found == True:
-			return
-
+			return 0
 
 		try:
 			self.candidate_numbers.pop(self.candidate_numbers.index(int(possibility)))	
@@ -52,7 +57,9 @@ class Cell:
 		if len(self.candidate_numbers) == 1:
 			self.value = self.candidate_numbers[0]
 			self.found = True
-			print('Found a new number')
+			return int(self.value)
+
+		return -1
 
 	def set_fixed(self, number):
 		self.value = number
@@ -68,6 +75,10 @@ class Cell:
 
 	def get_candidates(self):
 		return self.candidate_numbers
+
+	def is_found(self):
+		if self.found:
+			return True
 
 	def get_printable_candidates(self):
 		printable_candidates = [1,2,3,4,5,6,7,8,9]
@@ -93,48 +104,81 @@ class Board:
 		        row.append(Cell(i, j))  
 		    self.board.append(row)
 
+
 	def check_if_single(self, row, col):
 		if len(self.board[row][col].get_candidates) == 1:
 			return True
-			
-
-	def remove_row(self, number, row, ignore_list):
-		for i in range(0,9):
-			if i in ignore_list:
-				continue
-			else:	
-				self.board[row][i].remove_candidate(number)
 
 
-	def remove_col(self, number, col, ignore_list):
-		for i in range(0,9):
-			if i in ignore_list:
-				continue
-			else:
-				self.board[i][col].remove_candidate(number)
+	# def remove_candidate_row(self, number, row, ignore_list):
+	# 	for i in range(0,9):
+	# 		if i in ignore_list:
+	# 			continue
+	# 		else:	
+	# 			if self.board[row][i].remove_candidate(number) == 1:
+	# 				pass
+	# 				#Call main tripple function
 
-	def remove_cluster(self, number, row, col, ignore_list):
-		row_cluster = math.floor(row / 3) * 3
-		col_cluster = math.floor(col / 3) * 3
 
-		for i in range(row_cluster, row_cluster + 3):
-			for j in range(col_cluster, col_cluster + 3):
-				if [i,j] in ignore_list:
-					continue
-				else:
-					self.board[i][j].remove_candidate(number)
+	# def remove_candidate_col(self, number, col, ignore_list):
+	# 	for i in range(0,9):
+	# 		if i in ignore_list:
+	# 			continue
+	# 		else:
+	# 			if self.board[i][col].remove_candidate(number) == 1:
+	# 				pass
+	# 				#Call main tripple function
+
+	# def remove_candidate_cluster(self, number, row, col, ignore_list):
+	# 	row_cluster = math.floor(row / 3) * 3
+	# 	col_cluster = math.floor(col / 3) * 3
+
+	# 	for i in range(row_cluster, row_cluster + 3):
+	# 		for j in range(col_cluster, col_cluster + 3):
+	# 			if [i,j] in ignore_list:
+	# 				continue
+	# 			else:
+	# 				if self.board[i][j].remove_candidate(number) == 1:
+	# 					pass
+	# 					#Call main tripple function
+
+
+	def solve(self):
+		#Loop over all cells on the board
+		for row in range(0,9):
+			for col in range(0,9):
+				#Check if the the cell in question is found 
+				if self.board[row][col].is_found():
+					#If we know a fixed number, go ahread and eliminate that number from row, col, cluster
+					self.basic_eliminations(self.board[row][col].value, row, col)
+
+
 
 	def basic_eliminations(self, number, row, col):
-		for i in range(0,9):
-			self.board[row][i].remove_candidate(number)
-			self.board[i][col].remove_candidate(number)
+		#Iterate over all cells in the row and column for the specific elimination
+		for current_iterator in range(0,9):
+			#If there were only 1 value left in the call the remove_candidate method will return with the number that was found
+			#with that number we can ecursivley call this function to do basic eliminations again on that cell
+			
+			if self.board[row][current_iterator].remove_candidate(number) > 0:
+				# The removal returned the number which is now the single remaining
+				# Recursivly call this function to run another round of eliminations
+				self.basic_eliminations(self.board[row][current_iterator].value, row, current_iterator)
 
+			if self.board[current_iterator][col].remove_candidate(number) > 0:
+				
+				self.basic_eliminations(self.board[current_iterator][col].value, current_iterator, col)
+
+		# This section is to determine a 3x3 cluster of numbers and eliminate candidates from that cluster
 		row_cluster = math.floor(row / 3) * 3
 		col_cluster = math.floor(col / 3) * 3
 
 		for i in range(row_cluster, row_cluster + 3):
 			for j in range(col_cluster, col_cluster + 3):
-				self.board[i][j].remove_candidate(number)
+				if self.board[i][j].remove_candidate(number) > 0:
+					self.basic_eliminations(self.board[i][j].value, i, j)
+					
+
 
 	def evaluate_cluster(self, cluster_row, cluster_col):
 		overlap_set = [0,0,0,0,0,0,0,0,0]
@@ -223,11 +267,6 @@ class Board:
 
 		print(tree)
 
-
-
-
-
-
 	def render_board(self):		
 		for i in range(0,37):
 			print(fore.RED + "-" + style.RESET, end='')
@@ -309,24 +348,6 @@ class Board:
 			row_num += 1
 		print('Read complete')
 
-	def solve(self):
-		rotation = 0
-		#while rotation != 10:
-		rotation += 1
-		for i in range(0,9):
-			for j in range(0,9):
-				if self.board[i][j].value != '-':
-					self.basic_eliminations(self.board[i][j].value, i, j)
-					#Need to get input if a new number was found. If so we need to rerun the eliminations
-
-
-	def full_solve(self):
-		pass
-		#1. basic eliminations
-		#2. Unique evaluations
-		#3. Subsets
-
-			
 
 
 b = Board()
@@ -358,6 +379,8 @@ while True:
 		b.render_possibility_space(row, col)
 	if inst == 'ss':
 		b.sum_sets()
+	if inst == 'test':
+		b.find_pairs()
 	
 	#MISC FUNCTIONS
 	if inst == 'exit' or inst == 'quit':
