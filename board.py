@@ -1,3 +1,7 @@
+from cell import Cell
+from colored import fore, back, style
+import math
+
 class Board:
 	def __init__(self):
 		self.board = []   
@@ -9,7 +13,7 @@ class Board:
 
 	def read_file(self):
 		#file_name = input('File name: ')
-		file_name = '2.txt'
+		file_name = '3.txt'
 		f = open(file_name, "r")
 
 		row_num = 0
@@ -76,88 +80,196 @@ class Board:
 			print(overlap_array)
 			print()
 
-			
-
 			for index, item in enumerate(overlap_array):
 				# Check if we have a position with a 1, meaning we found a unique value  
 				if item == 1:
-					print('A one was found in row {} col {}'.format(investigated_row, index))
+					print('A one was found in row {}. It was for number {}'.format(investigated_row, index + 1))
 					print()
-
+					print(self.find_address_of_unique_number("row", investigated_row, index + 1))
+					
+					self.board[investigated_row][self.find_address_of_unique_number("row", investigated_row, index + 1)].set_number(index + 1)
+					#Here we must trigger new step 1 eliminations
+					self.solve()
+					#Recursivly run this function again given the new info
+					self.find_unique_candidates()
 			overlap_array = [0,0,0,0,0,0,0,0,0]
 
 
 		# 2. Iterate over all 9 cols on the board to find cols with unique candidates
 
+		for investigated_col in range(0, 9):
+			for current_row in range(0, 9):
+				if self.board[current_row][investigated_col].value == '-':
+					for n in self.board[current_row][investigated_col].candidate_numbers:
+						overlap_array[n - 1] += 1
+			print([1,2,3,4,5,6,7,8,9])
+			print(overlap_array)
+			print()
+
+			for index, item in enumerate(overlap_array):
+				# Check if we have a position with a 1, meaning we found a unique value  
+				if item == 1:
+					print('A one was found in col {}. It was for number {}'.format(investigated_col, index + 1))
+					print()
+					print(self.find_address_of_unique_number("col", investigated_col, index + 1))
+					
+					self.board[self.find_address_of_unique_number("col", investigated_col, index + 1)][investigated_col].set_number(index + 1)
+					#Here we must trigger new step 1 eliminations
+					self.solve()
+					#Recursivly run this function again given the new info
+					self.find_unique_candidates()
+			overlap_array = [0,0,0,0,0,0,0,0,0]
+
 		# 3. Iterate over all 9 clusters on the board to find clusters with unique candidates
 
+		print("Starting on Cluster evaluation")
+		for cluster_row in range(0, 3):
+			for cluster_col in range(0, 3):
+				print('Evaluating cluster starting in {}, {}'.format(cluster_row*3,cluster_col*3))
 
-
-
-	def evaluate_cluster(self, cluster_row, cluster_col):
-		overlap_set = [0,0,0,0,0,0,0,0,0]
-		for i in range(cluster_row, cluster_row + 3):
-			for j in range(cluster_col, cluster_col + 3):
-				if self.board[i][j].value == '-':
-					for n in self.board[i][j].candidate_numbers:
-						overlap_set[n - 1] += 1
-
-		magic_number = 0
-
-		for index, item in enumerate(overlap_set):  
-			if item == 1:
-				print('A one was found in index number {}'.format(index))
-				magic_number = index
-				print(overlap_set)
-
-				for i in range(cluster_row, cluster_row + 3):
-					for j in range(cluster_col, cluster_col + 3):
+				overlap_array = [0,0,0,0,0,0,0,0,0]
+				for i in range(cluster_row * 3, (cluster_row * 3) + 3):
+					for j in range(cluster_col * 3, (cluster_col * 3) + 3):
 						if self.board[i][j].value == '-':
 							for n in self.board[i][j].candidate_numbers:
-								if n == magic_number + 1:
+								overlap_array[n - 1] += 1
+				
+				print([1,2,3,4,5,6,7,8,9])
+				print(overlap_array)
+				print()
+
+				for index, item in enumerate(overlap_array):  
+					if item == 1:
+						print('A one was found in index number {}'.format(index))
+
+				#MUST CALL find_address_of_unique_number HERE!!!
+
+
+	def find_address_of_unique_number(self, variant, index, number):
+		"""
+		Variant: row, col, cluster
+		Index: index of the variant, 0 based
+		Number: Which number should be found
+		"""
+		if variant == "row":
+			for i in range(0, 9):
+				if number in self.board[index][i].candidate_numbers:
+					return(i)
+					# could send the address if more than one, for now only using this func
+					# to search for a single cell
+
+		if variant == "col":
+			for i in range(0, 9):
+				if number in self.board[i][index].candidate_numbers:
+					return(i)
+
+		if variant == "cluster":
+			for i in range(index[0], index[0] + 3):
+					for j in range(index[1], index[1] + 3):
+						if self.board[i][j].value == '-':
+							for n in self.board[i][j].candidate_numbers:
+								if n == number:
 									print(magic_number)
 									print(self.board[i][j].candidate_numbers)
 									print('In row {}, col {}, we found a unique {}'.format(i,j,magic_number+1))
 									self.board[i][j].set_number(magic_number+1)
-						
 
-	def evaluate_clusters(self):
-		for i in range(0, 3):
-			for j in range(0, 3):
-				print('evaluating cluster starting in {}, {}'.format(i*3,j*3))
-				self.evaluate_cluster(i * 3, j * 3)
 
+
+				
+	"""
+	Identify cells which have the same candidates
+	Look at each row, col, and cluster. Take a fingerprint of each cell and count if there are multiple 
+	instances of that finger print
+	In Can make this work with tripels as well later to take fingerprints on subsets. 
+	Create the fingerprint based on a hash table/dict. 
+	"""
 	def naked_subset(self):
-		for i in range(0,81):
-			for j in range(i + 1, 81):
+		
+		# Check each row
+		for investigated_row in range(0, 9):
+			# For each row, check each col in that row
+			fingerprint_array = []
+			for current_col in range(0, 9):
+				if self.board[investigated_row][current_col].get_candidates():
+					candidate_list = self.board[investigated_row][current_col].get_candidates()
+					if candidate_list in fingerprint_array:
+						print('Match found: {}, in row {}'.format(candidate_list, investigated_row + 1))
+						if len(candidate_list) == 2:
+							#Erase candidates from all other cells in the row
+							print('Removing {}'.format(candidate_list))
+							self.remove_candidates_from_row(investigated_row, candidate_list)
+					else:
+						fingerprint_array.append(candidate_list)
 
-				base_row = math.floor(i / 9)
-				base_col = i - (math.floor(i / 9)) * 9
+		# Check each col
+		for investigated_col in range(0, 9):
+			# For each row, check each col in that row
+			fingerprint_array = []
+			for current_row in range(0, 9):
+				if self.board[current_row][investigated_col].get_candidates():
+					candidate_list = self.board[current_row][investigated_col].get_candidates()
+					if candidate_list in fingerprint_array:
+						print('Match found: {}, in col {}'.format(candidate_list, investigated_col + 1))
+						if len(candidate_list) == 2:
+							#Erase candidates from all other cells in the row
+							print('Removing {}'.format(candidate_list))
+							self.remove_candidates_from_col(investigated_col, candidate_list)
+					else:
+						fingerprint_array.append(candidate_list)
 
-				compare_row = math.floor(j / 9)
-				compare_col = j - (math.floor(j / 9)) * 9
 
-				if self.board[base_row][base_col].get_candidates() == self.board[compare_row][compare_col].get_candidates() and len(self.board[compare_row][compare_col].get_candidates()) == 2:
-					# print('Found a match')
-					# print(self.board[base_row][base_col].get_candidates())
-					# print('Between: {} and {}, and {} and {}'.format(base_row, base_col, compare_row, compare_col))
+
+		# for i in range(0,81):
+		# 	for j in range(i + 1, 81):
+
+		# 		base_row = math.floor(i / 9)
+		# 		base_col = i - (math.floor(i / 9)) * 9
+
+		# 		compare_row = math.floor(j / 9)
+		# 		compare_col = j - (math.floor(j / 9)) * 9
+
+		# 		if self.board[base_row][base_col].get_candidates() == self.board[compare_row][compare_col].get_candidates() and len(self.board[compare_row][compare_col].get_candidates()) == 2:
+		# 			# print('Found a match')
+		# 			# print(self.board[base_row][base_col].get_candidates())
+		# 			# print('Between: {} and {}, and {} and {}'.format(base_row, base_col, compare_row, compare_col))
 					
-					#Check if the two cells are in the same row, col, or box. If so, remove all other candidates
-					if base_row == compare_row:
-						for n in self.board[base_row][base_col].get_candidates():
-							ignore_list = [base_col, compare_col]
-							self.remove_row(n, base_row, ignore_list)
+		# 			#Check if the two cells are in the same row, col, or box. If so, remove all other candidates
+		# 			if base_row == compare_row:
+		# 				for n in self.board[base_row][base_col].get_candidates():
+		# 					ignore_list = [base_col, compare_col]
+		# 					self.remove_row(n, base_row, ignore_list)
 
-					if base_col == compare_col:
-						for n in self.board[base_row][base_col].get_candidates():
-							ignore_list = [base_row, compare_row]
-							self.remove_col(n, base_col, ignore_list)
+		# 			if base_col == compare_col:
+		# 				for n in self.board[base_row][base_col].get_candidates():
+		# 					ignore_list = [base_row, compare_row]
+		# 					self.remove_col(n, base_col, ignore_list)
 
-					if self.board[base_row][base_col].get_cluster() == self.board[compare_row][compare_col].get_cluster():
-						for n in self.board[base_row][base_col].get_candidates():
-							ignore_list = [[base_row, base_col], [compare_row, compare_col]]
-							self.remove_cluster(n, base_row, base_col, ignore_list)
+		# 			if self.board[base_row][base_col].get_cluster() == self.board[compare_row][compare_col].get_cluster():
+		# 				for n in self.board[base_row][base_col].get_candidates():
+		# 					ignore_list = [[base_row, base_col], [compare_row, compare_col]]
+		# 					self.remove_cluster(n, base_row, base_col, ignore_list)
 
+	def remove_candidates_from_row(self, row, candidate_list):
+		for current_col in range(0, 9):
+			if self.board[row][current_col].get_candidates() == candidate_list:
+				print("This is the cell itself")
+				continue
+			for number in candidate_list:
+				print("Removing candidate {}".format(number))
+				self.board[row][current_col].remove_candidate(number)
+	
+	def remove_candidates_from_col(self, col, candidate_list):
+		for current_row in range(0, 9):
+			if self.board[current_row][col].get_candidates() == candidate_list:
+				print("This is the cell itself")
+				continue
+			for number in candidate_list:
+				print("Removing candidate {}".format(number))
+				self.board[current_row][col].remove_candidate(number)
+
+	def remove_candidates_from_cluster(self, cluster, candidate_list):
+		pass
 
 	def sum_sets(self):
 		tree = {}

@@ -70,6 +70,8 @@ class Cell:
 		print('Found a new number')
 
 	def get_candidates(self):
+		if self.found:
+			return
 		return self.candidate_numbers
 
 	def is_found(self):

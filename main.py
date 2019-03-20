@@ -1,8 +1,5 @@
-from module import SudukoBoard
-from colored import fore, back, style
 from board import Board
-from cell import Cell
-import math
+
 
 b = Board()
 
@@ -31,8 +28,7 @@ while True:
 		b.render_solution_space()
 	if inst == 'ss':
 		b.sum_sets()
-	if inst == 'test':
-		b.find_pairs()
+
 	
 	#MISC FUNCTIONS
 	if inst == 'exit' or inst == 'quit':
@@ -40,6 +36,9 @@ while True:
 
 	if inst == 'n':
 		b.naked_subset()
+
+	if inst == "pand":
+		b.find_address_of_unique_number("row", 8, 4)
 	
 
 
